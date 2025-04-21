@@ -4,10 +4,21 @@ pipeline {
         stage ('Build') {
             steps {
                 sh '''#!/bin/bash
-                python3.7 -m venv venv
-                source venv/bin/activate
+                # Find python3.7 path
+                PYTHON_PATH=$(which python3.7 || which python3)
+                echo "Using Python at: $PYTHON_PATH"
+                
+                # Create virtual environment
+                $PYTHON_PATH -m venv venv || python3 -m venv venv
+                
+                # Activate virtual environment
+                . venv/bin/activate || source venv/bin/activate
+                
                 pip install pip --upgrade
                 pip install -r requirements.txt
+                
+                # Install EB CLI in the virtual environment
+                pip install awsebcli
                 '''
             }
         }
@@ -22,36 +33,18 @@ pipeline {
         stage ('Deploy') {
             steps {
                 sh '''#!/bin/bash
-                # Make sure we're using the venv from this workspace
-                if [ ! -d "venv" ]; then
-                    echo "Creating virtual environment..."
-                    python3.7 -m venv venv
-                    source venv/bin/activate
-                    pip install pip --upgrade
-                    pip install -r requirements.txt
-                else
-                    source venv/bin/activate
-                fi
+                # Activate virtual environment
+                . venv/bin/activate || source venv/bin/activate
                 
-                # Ensure EB CLI is available
-                export PATH="/var/lib/jenkins/.ebcli-virtual-env/executables:$PATH"
-                
-                # Initialize EB if needed
+                # Initialize Elastic Beanstalk if needed
                 if [ ! -d ".elasticbeanstalk" ]; then
                     echo "Initializing Elastic Beanstalk..."
                     eb init -p python-3.7 ${EB_APP_NAME} --region us-east-1
                 fi
                 
-                # Check if environment exists
-                if eb status ${EB_ENV_NAME} 2>&1 | grep -q "No Environment"; then
-                    # Create new environment if it doesn't exist
-                    echo "Creating new Elastic Beanstalk environment: ${EB_ENV_NAME}"
-                    eb create ${EB_ENV_NAME} --single
-                else
-                    # Deploy to existing environment
-                    echo "Deploying to existing Elastic Beanstalk environment: ${EB_ENV_NAME}"
-                    eb deploy ${EB_ENV_NAME}
-                fi
+                # Deploy to Elastic Beanstalk
+                echo "Deploying to Elastic Beanstalk environment: ${EB_ENV_NAME}"
+                eb deploy ${EB_ENV_NAME} --staged || eb create ${EB_ENV_NAME} --single
                 '''
             }
         }
