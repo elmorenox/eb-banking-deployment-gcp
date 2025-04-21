@@ -15,10 +15,10 @@ sudo apt upgrade -y
 echo "Installing required system packages..."
 sudo apt install -y openjdk-17-jdk git python3 python3-pip python3-venv unzip software-properties-common expect
 
-# Add and install Python 3.7
-echo "Adding Python 3.7 repository..."
+# Add and install Python 3.9
+echo "Adding Python 3.9 repository..."
 sudo add-apt-repository ppa:deadsnakes/ppa -y
-sudo apt install -y python3.7 python3.7-venv
+sudo apt install -y python3.9 python3.9-venv
 
 # Configure Jenkins repository and install Jenkins
 echo "Configuring Jenkins repository..."
@@ -216,7 +216,7 @@ sudo -u jenkins bash -c "source ~/.bashrc && $EBCLI_PATH --version" >> $LOG_FILE
 echo "AWS Credentials status:" >> $LOG_FILE
 sudo -u jenkins bash -c "aws configure list" >> $LOG_FILE 2>&1
 echo "Testing eb init:" >> $LOG_FILE
-sudo -u jenkins bash -c "source ~/.bashrc && cd /tmp && $EBCLI_PATH init --platform python-3.7 --region us-east-1 --interactive=false" >> $LOG_FILE 2>&1
+sudo -u jenkins bash -c "source ~/.bashrc && cd /tmp && $EBCLI_PATH init --platform python-3.9 --region us-east-1 --interactive=false"
 echo "=========== End of Diagnostic Information ===========" >> $LOG_FILE
 
 echo "Automated Jenkins setup completed successfully at $(date)"

@@ -33,34 +33,29 @@ pipeline {
         stage ('Deploy') {
             steps {
                 sh '''#!/bin/bash
-                # Activate virtual environment
-                . venv/bin/activate || source venv/bin/activate
-                
-                # Initialize Elastic Beanstalk if needed
-                if [ ! -d ".elasticbeanstalk" ]; then
-                    echo "Initializing Elastic Beanstalk..."
-                    eb init -p python-3.7 ${EB_APP_NAME} --region us-east-1
-                fi
-                
-                # Deploy to Elastic Beanstalk
-                echo "Deploying to Elastic Beanstalk environment: ${EB_ENV_NAME}"
-                eb deploy ${EB_ENV_NAME} --staged || eb create ${EB_ENV_NAME} --single
-                '''
-            }
-        }
+        . venv/bin/activate || source venv/bin/activate
+        
+        if [ ! -d ".elasticbeanstalk" ]; then
+          echo "Initializing Elastic Beanstalk..."
+          eb init -p python-3.9 ${EB_APP_NAME} --region us-east-1 --interactive=false
+        fi
+        
+        echo "Deploying to Elastic Beanstalk environment: ${EB_ENV_NAME}"
+        eb deploy ${EB_ENV_NAME} --staged || eb create ${EB_ENV_NAME} --single --platform python-3.9
+        '''
+      }
     }
-    
-    environment {
-        EB_ENV_NAME = "eb-ecommerce-env"
-        EB_APP_NAME = "eb-ecommerce-app"
+  }
+  environment {
+    EB_ENV_NAME = "eb-ecommerce-env"
+    EB_APP_NAME = "eb-ecommerce-app"
+  }
+  post {
+    success {
+      echo 'Successfully deployed application to AWS Elastic Beanstalk'
     }
-    
-    post {
-        success {
-            echo 'Successfully deployed application to AWS Elastic Beanstalk'
-        }
-        failure {
-            echo 'Pipeline failed'
-        }
+    failure {
+      echo 'Pipeline failed'
     }
+  }
 }
