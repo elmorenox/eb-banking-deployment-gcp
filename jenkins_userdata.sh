@@ -1,69 +1,129 @@
 #!/bin/bash
-# Jenkins setup and configuration script for AWS EC2
+# Fully automated Jenkins setup script for CI/CD pipeline with AWS Elastic Beanstalk
+
+# Create log file for this script
+LOG_FILE="/var/log/jenkins-setup.log"
+exec 1> >(tee -a $LOG_FILE) 2>&1
+echo "Starting Jenkins setup script at $(date)"
 
 # Update system packages
+echo "Updating system packages..."
 sudo apt update
 sudo apt upgrade -y
 
-# Install necessary packages
-sudo apt install -y openjdk-17-jdk git python3 python3-pip python3-venv unzip software-properties-common
+# Install required system packages
+echo "Installing required system packages..."
+sudo apt install -y openjdk-17-jdk git python3 python3-pip python3-venv unzip software-properties-common expect
+
+# Add and install Python 3.7
+echo "Adding Python 3.7 repository..."
 sudo add-apt-repository ppa:deadsnakes/ppa -y
 sudo apt install -y python3.7 python3.7-venv
 
-# Add the Jenkins repository
+# Configure Jenkins repository and install Jenkins
+echo "Configuring Jenkins repository..."
 curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | sudo tee \
   /usr/share/keyrings/jenkins-keyring.asc > /dev/null
 echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
   https://pkg.jenkins.io/debian-stable binary/ | sudo tee \
   /etc/apt/sources.list.d/jenkins.list > /dev/null
 
-# Update and install Jenkins
+echo "Installing Jenkins..."
 sudo apt update
 sudo apt install -y jenkins
 
 # Start Jenkins service
+echo "Starting Jenkins service..."
 sudo systemctl enable jenkins
 sudo systemctl start jenkins
 
 # Install AWS CLI
+echo "Installing AWS CLI..."
 curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
 unzip awscliv2.zip
 sudo ./aws/install
 rm -rf aws awscliv2.zip
 
-# Set up Jenkins user
-sudo passwd jenkins << EOF
-jenkins123
-jenkins123
+# Configure AWS credentials for jenkins user
+echo "Configuring AWS credentials for jenkins user..."
+sudo mkdir -p /var/lib/jenkins/.aws
+sudo tee /var/lib/jenkins/.aws/credentials > /dev/null << EOF
+[default]
+aws_access_key_id = ${aws_access_key}
+aws_secret_access_key = ${aws_secret_key}
 EOF
 
-# Create a directory for the Jenkins workspace
-sudo mkdir -p /var/lib/jenkins/workspace
-sudo chown -R jenkins:jenkins /var/lib/jenkins/workspace
+sudo tee /var/lib/jenkins/.aws/config > /dev/null << EOF
+[default]
+region = us-east-1
+output = json
+EOF
 
-# Give jenkins user sudo access (needed for some operations)
-echo "jenkins ALL=(ALL) NOPASSWD:ALL" | sudo tee /etc/sudoers.d/jenkins
+# Install EB CLI for jenkins user using official method
+echo "Installing EB CLI for jenkins user using official method..."
+sudo -u jenkins bash -c "cd /tmp && git clone https://github.com/aws/aws-elastic-beanstalk-cli-setup.git"
+sudo -u jenkins bash -c "cd /tmp && python3 aws-elastic-beanstalk-cli-setup/scripts/ebcli_installer.py"
 
-# Wait for Jenkins to be fully up
-echo "Waiting for Jenkins to be fully up..."
-sleep 30
+# Add EB CLI to jenkins user path
+EBCLI_PATH=$(sudo -u jenkins bash -c "find /var/lib/jenkins/.ebcli-virtual-env -name 'eb' -type f | head -n 1")
+EBCLI_DIR=$(dirname "$EBCLI_PATH")
+echo "Found EB CLI at: $EBCLI_PATH"
 
-# Get the admin password
+# Add EB CLI to PATH in bashrc
+echo "Adding EB CLI to jenkins user PATH..."
+sudo -u jenkins bash -c "echo 'export PATH=$EBCLI_DIR:\$PATH' >> /var/lib/jenkins/.bashrc"
+sudo -u jenkins bash -c "source /var/lib/jenkins/.bashrc"
+
+# Verify EB CLI installation
+echo "Verifying EB CLI installation..."
+sudo -u jenkins bash -c "source /var/lib/jenkins/.bashrc && $EBCLI_PATH --version"
+
+# Test AWS and EB CLI configuration
+echo "Testing AWS and EB CLI configuration..."
+sudo -u jenkins bash -c "aws --version"
+sudo -u jenkins bash -c "aws configure list"
+sudo -u jenkins bash -c "$EBCLI_PATH --version"
+
+# Set proper permissions
+echo "Setting permissions..."
+sudo chown -R jenkins:jenkins /var/lib/jenkins/.aws
+sudo chmod 600 /var/lib/jenkins/.aws/credentials
+sudo chmod 644 /var/lib/jenkins/.aws/config
+
+# Wait for Jenkins to be fully initialized
+echo "Waiting for Jenkins to initialize..."
+while ! sudo test -f /var/lib/jenkins/secrets/initialAdminPassword; do
+    echo "Jenkins not ready yet, waiting..."
+    sleep 5
+done
+
+# Retrieve the initial admin password
 ADMIN_PASSWORD=$(sudo cat /var/lib/jenkins/secrets/initialAdminPassword)
-echo "Jenkins initial admin password: $ADMIN_PASSWORD"
+echo "Jenkins admin password retrieved successfully"
 
-# Create a log file to store the Jenkins admin password
-echo "Jenkins initial admin password: $ADMIN_PASSWORD" | sudo tee /home/ubuntu/jenkins_password.txt
+# Wait for Jenkins to be responsive
+echo "Waiting for Jenkins web interface to be available..."
+while ! curl -s http://localhost:8080/login > /dev/null; do
+    echo "Jenkins web interface not ready yet, waiting..."
+    sleep 5
+done
+echo "Jenkins web interface is available"
 
-# Install Elastic Beanstalk CLI for jenkins user
-sudo su - jenkins << EOF
-mkdir -p ~/.local/bin
-pip install --user awsebcli
-echo 'export PATH=~/.local/bin:$PATH' >> ~/.bashrc
-source ~/.bashrc
-EOF
+# Download Jenkins CLI
+echo "Downloading Jenkins CLI..."
+cd /tmp
+wget http://localhost:8080/jnlpJars/jenkins-cli.jar
 
-# Create Multibranch Pipeline job configuration
+# Install required Jenkins plugins
+echo "Installing Jenkins plugins..."
+java -jar jenkins-cli.jar -s http://localhost:8080/ -auth admin:$ADMIN_PASSWORD install-plugin workflow-aggregator git junit pipeline-stage-view blueocean docker-workflow pipeline-github-lib pipeline-rest-api ssh-agent -deploy
+
+# Wait for plugins to be installed and Jenkins to stabilize
+echo "Waiting for plugins to be installed..."
+sleep 60
+
+# Create Multibranch Pipeline job
+echo "Creating Multibranch Pipeline job..."
 cat > job_config.xml << 'EOL'
 <?xml version='1.1' encoding='UTF-8'?>
 <org.jenkinsci.plugins.workflow.multibranch.WorkflowMultiBranchProject plugin="workflow-multibranch@2.26">
@@ -103,7 +163,7 @@ cat > job_config.xml << 'EOL'
       <jenkins.branch.BranchSource>
         <source class="jenkins.plugins.git.GitSCMSource" plugin="git@4.11.0">
           <id>1234567890</id>
-          <remote>${github_repo_url}</remote>
+          <remote>https://github.com/elmorenox/eb-ecommerce-deployment.git</remote>
           <credentialsId></credentialsId>
           <traits>
             <jenkins.plugins.git.traits.BranchDiscoveryTrait/>
@@ -123,86 +183,40 @@ cat > job_config.xml << 'EOL'
 </org.jenkinsci.plugins.workflow.multibranch.WorkflowMultiBranchProject>
 EOL
 
-# Download and save the jenkinscli.jar for later use
-sudo mkdir -p /home/ubuntu/jenkins_setup
-cd /home/ubuntu/jenkins_setup
-wget -q -O jenkins-cli.jar http://localhost:8080/jnlpJars/jenkins-cli.jar
-chmod +x jenkins-cli.jar
-
-# Create a setup script for the admin user to run after first login
-cat > /home/ubuntu/jenkins_setup/setup_jenkins.sh << 'EOL'
-#!/bin/bash
-
-# This script should be run after the first login to Jenkins
-
-# Check if admin password is provided as argument
-if [ -z "$1" ]; then
-    echo "Usage: $0 <admin_password>"
-    echo "Admin password can be found in /home/ubuntu/jenkins_password.txt"
-    exit 1
+echo "Creating job 'eb-ecommerce-pipeline'..."
+java -jar jenkins-cli.jar -s http://localhost:8080/ -auth admin:$ADMIN_PASSWORD create-job eb-ecommerce-pipeline < job_config.xml
+if [ $? -eq 0 ]; then
+    echo "Pipeline job created successfully"
+else
+    echo "ERROR: Failed to create pipeline job"
 fi
 
-ADMIN_PASSWORD=$1
-cd /home/ubuntu/jenkins_setup
+# Disable the setup wizard for future logins
+echo "Disabling Jenkins setup wizard..."
+sudo mkdir -p /var/lib/jenkins
+echo "2.0" | sudo tee /var/lib/jenkins/jenkins.install.InstallUtil.lastExecVersion
+sudo chown -R jenkins:jenkins /var/lib/jenkins
 
-# Install necessary plugins
-echo "Installing necessary plugins..."
-java -jar jenkins-cli.jar -s http://localhost:8080/ -auth admin:$ADMIN_PASSWORD install-plugin workflow-aggregator git junit pipeline-stage-view blueocean docker-workflow pipeline-github-lib pipeline-rest-api ssh-agent -deploy
+# Create documentation for the admin password
+echo "Creating documentation files..."
+echo "Jenkins initial admin password: $ADMIN_PASSWORD" | sudo tee /home/ubuntu/jenkins_admin_credentials.txt
+sudo chown ubuntu:ubuntu /home/ubuntu/jenkins_admin_credentials.txt
 
-# Restart Jenkins
-echo "Restarting Jenkins..."
-java -jar jenkins-cli.jar -s http://localhost:8080/ -auth admin:$ADMIN_PASSWORD safe-restart
+echo "Setup complete at $(date)"
+echo "Detailed log file available at: $LOG_FILE"
 
-# Wait for Jenkins to restart
-echo "Waiting for Jenkins to restart..."
-sleep 30
+# Additional diagnostic information
+echo "=========== Diagnostic Information ===========" >> $LOG_FILE
+echo "Jenkins service status:" >> $LOG_FILE
+sudo systemctl status jenkins >> $LOG_FILE 2>&1
+echo "AWS CLI version:" >> $LOG_FILE
+aws --version >> $LOG_FILE 2>&1
+echo "EB CLI check for jenkins user:" >> $LOG_FILE
+sudo -u jenkins bash -c "source ~/.bashrc && $EBCLI_PATH --version" >> $LOG_FILE 2>&1
+echo "AWS Credentials status:" >> $LOG_FILE
+sudo -u jenkins bash -c "aws configure list" >> $LOG_FILE 2>&1
+echo "Testing eb init:" >> $LOG_FILE
+sudo -u jenkins bash -c "source ~/.bashrc && cd /tmp && $EBCLI_PATH init --platform python-3.7 --region us-east-1 --interactive=false" >> $LOG_FILE 2>&1
+echo "=========== End of Diagnostic Information ===========" >> $LOG_FILE
 
-# Create the job
-echo "Creating job 'eb-ecommerce'..."
-java -jar jenkins-cli.jar -s http://localhost:8080/ -auth admin:$ADMIN_PASSWORD create-job eb-ecommerce < /home/ubuntu/job_config.xml
-
-echo "Jenkins configuration complete!"
-echo "Your Multibranch Pipeline 'eb-ecommerce' has been created."
-EOL
-
-chmod +x /home/ubuntu/jenkins_setup/setup_jenkins.sh
-
-# Create a readme file with instructions
-cat > /home/ubuntu/README.txt << 'EOL'
-Jenkins Server Setup Instructions
-================================
-
-1. Access Jenkins at http://YOUR_SERVER_IP:8080
-
-2. For the initial setup, use the admin password found in:
-   /home/ubuntu/jenkins_password.txt
-
-3. Install the suggested plugins when prompted.
-
-4. Create your admin user when prompted.
-
-5. After completing the initial setup, run the following command to complete the configuration:
-   /home/ubuntu/jenkins_setup/setup_jenkins.sh <admin_password>
-   (Use the password you set for your admin user)
-
-6. For the Jenkins user:
-   - Username: jenkins
-   - Password: jenkins123
-
-7. Complete AWS CLI configuration:
-   sudo su - jenkins
-   aws configure
-   (Enter your AWS access key, secret key, region (us-east-1), and output format (json))
-
-8. To check if the Elastic Beanstalk CLI is installed correctly:
-   eb --version
-
-Important: Remember to change the default passwords for security purposes!
-EOL
-
-# Set proper permissions
-sudo chown -R ubuntu:ubuntu /home/ubuntu/jenkins_setup
-sudo chown ubuntu:ubuntu /home/ubuntu/README.txt
-sudo chown ubuntu:ubuntu /home/ubuntu/job_config.xml
-
-echo "EC2 instance setup complete! Jenkins is now installed."
+echo "Automated Jenkins setup completed successfully at $(date)"

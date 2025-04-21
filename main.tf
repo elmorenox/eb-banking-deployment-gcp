@@ -112,12 +112,23 @@ resource "aws_iam_role" "jenkins_role" {
 # Attach policies to the IAM role
 resource "aws_iam_role_policy_attachment" "eb_full_access" {
   role       = aws_iam_role.jenkins_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AWSElasticBeanstalkFullAccess"
+  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess-AWSElasticBeanstalk"
 }
 
 resource "aws_iam_role_policy_attachment" "ec2_full_access" {
   role       = aws_iam_role.jenkins_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2FullAccess"
+}
+
+# Attach additional policies that might be needed
+resource "aws_iam_role_policy_attachment" "s3_access" {
+  role       = aws_iam_role.jenkins_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+}
+
+resource "aws_iam_role_policy_attachment" "cloudformation_access" {
+  role       = aws_iam_role.jenkins_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AWSCloudFormationFullAccess"
 }
 
 # Create an IAM instance profile
