@@ -1,47 +1,45 @@
 pipeline {
   agent any
-    stages {
-        stage ('Build') {
-            steps {
-                sh '''#!/bin/bash
-                # Find python3.7 path
-                PYTHON_PATH=$(which python3.7 || which python3)
-                echo "Using Python at: $PYTHON_PATH"
-                
-                # Create virtual environment
-                $PYTHON_PATH -m venv venv || python3 -m venv venv
-                
-                # Activate virtual environment
-                . venv/bin/activate || source venv/bin/activate
-                
-                pip install pip --upgrade
-                pip install -r requirements.txt
-                
-                # Install EB CLI in the virtual environment
-                pip install awsebcli
-                '''
-            }
-        }
-        stage ('Test') {
-            steps {
-                sh '''#!/bin/bash
-                chmod +x system_resources_test.sh
-                ./system_resources_test.sh
-                '''
-            }
-        }
-        stage ('Deploy') {
-            steps {
-                sh '''#!/bin/bash
-        . venv/bin/activate || source venv/bin/activate
+  stages {
+    stage ('Build') {
+      steps {
+        sh '''#!/bin/bash
+        # Use python3.9 explicitly
+        PYTHON_PATH=$(which python3.9)
+        echo "Using Python at: $PYTHON_PATH"
         
+        # Create virtual environment
+        $PYTHON_PATH -m venv venv
+        . venv/bin/activate
+        
+        pip install pip --upgrade
+        pip install -r requirements.txt
+        pip install awsebcli
+        '''
+      }
+    }
+    stage ('Test') {
+      steps {
+        sh '''#!/bin/bash
+        chmod +x system_resources_test.sh
+        ./system_resources_test.sh
+        '''
+      }
+    }
+    stage ('Deploy') {
+      steps {
+        sh '''#!/bin/bash
+        . venv/bin/activate
+        
+        # Initialize EB CLI using our config file
         if [ ! -d ".elasticbeanstalk" ]; then
-          echo "Initializing Elastic Beanstalk..."
-          eb init -p python-3.9 ${EB_APP_NAME} --region us-east-1 --interactive=false
+          echo "Setting up Elastic Beanstalk configuration..."
+          mkdir -p .elasticbeanstalk
+          cp eb-config.yml .elasticbeanstalk/config.yml
         fi
         
-        echo "Deploying to Elastic Beanstalk environment: ${EB_ENV_NAME}"
-        eb deploy ${EB_ENV_NAME} --staged || eb create ${EB_ENV_NAME} --single --platform python-3.9
+        echo "Deploying to Elastic Beanstalk..."
+        eb deploy ${EB_ENV_NAME} || eb create ${EB_ENV_NAME}
         '''
       }
     }
