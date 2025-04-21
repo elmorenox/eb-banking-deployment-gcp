@@ -8,9 +8,9 @@ sudo apt upgrade -y
 # Install required system packages
 sudo apt install -y openjdk-17-jdk git python3 python3-pip python3-venv unzip software-properties-common expect
 
-# Add and install Python 3.9
+# Add and install Python 3.10
 sudo add-apt-repository ppa:deadsnakes/ppa -y
-sudo apt install -y python3.9 python3.9-venv
+sudo apt install -y python3.10 python3.10-venv
 
 # Configure Jenkins repository and install Jenkins
 curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | sudo tee /usr/share/keyrings/jenkins-keyring.asc > /dev/null

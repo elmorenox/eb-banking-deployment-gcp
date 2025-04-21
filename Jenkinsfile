@@ -4,8 +4,8 @@ pipeline {
     stage ('Build') {
       steps {
         sh '''#!/bin/bash
-        # Use python3.9 explicitly
-        PYTHON_PATH=$(which python3.9)
+        # Use python3.10 explicitly
+        PYTHON_PATH=$(which python3.10)
         echo "Using Python at: $PYTHON_PATH"
         
         # Create virtual environment
