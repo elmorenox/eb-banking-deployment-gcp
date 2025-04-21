@@ -22,7 +22,25 @@ pipeline {
         stage ('Deploy') {
             steps {
                 sh '''#!/bin/bash
-                source venv/bin/activate
+                # Make sure we're using the venv from this workspace
+                if [ ! -d "venv" ]; then
+                    echo "Creating virtual environment..."
+                    python3.7 -m venv venv
+                    source venv/bin/activate
+                    pip install pip --upgrade
+                    pip install -r requirements.txt
+                else
+                    source venv/bin/activate
+                fi
+                
+                # Ensure EB CLI is available
+                export PATH="/var/lib/jenkins/.ebcli-virtual-env/executables:$PATH"
+                
+                # Initialize EB if needed
+                if [ ! -d ".elasticbeanstalk" ]; then
+                    echo "Initializing Elastic Beanstalk..."
+                    eb init -p python-3.7 ${EB_APP_NAME} --region us-east-1
+                fi
                 
                 # Check if environment exists
                 if eb status ${EB_ENV_NAME} 2>&1 | grep -q "No Environment"; then
@@ -41,6 +59,7 @@ pipeline {
     
     environment {
         EB_ENV_NAME = "eb-ecommerce-env"
+        EB_APP_NAME = "eb-ecommerce-app"
     }
     
     post {
