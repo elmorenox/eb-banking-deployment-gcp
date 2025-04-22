@@ -112,7 +112,7 @@ cat > job_config.xml << 'EOL'
       <jenkins.branch.BranchSource>
         <source class="jenkins.plugins.git.GitSCMSource" plugin="git@4.11.0">
           <id>1234567890</id>
-          <remote>https://github.com/elmorenox/eb-ecommerce-deployment.git</remote>
+          <remote>https://github.com/elmorenox/eb-banking-deployment.git</remote>
           <credentialsId></credentialsId>
           <traits>
             <jenkins.plugins.git.traits.BranchDiscoveryTrait/>
@@ -132,7 +132,7 @@ cat > job_config.xml << 'EOL'
 </org.jenkinsci.plugins.workflow.multibranch.WorkflowMultiBranchProject>
 EOL
 
-java -jar jenkins-cli.jar -s http://localhost:8080/ -auth admin:$ADMIN_PASSWORD create-job eb-ecommerce-pipeline < job_config.xml
+java -jar jenkins-cli.jar -s http://localhost:8080/ -auth admin:$ADMIN_PASSWORD create-job eb-banking-pipeline < job_config.xml
 
 sudo chown -R jenkins:jenkins /var/lib/jenkins
 

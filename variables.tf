@@ -1,7 +1,7 @@
 variable "eb_environment_name" {
   description = "Name of the Elastic Beanstalk environment"
   type        = string
-  default     = "eb-ecommerce-env"
+  default     = "eb-banking-env"
 }
 
 variable "region" {
@@ -75,7 +75,7 @@ variable "resource_tags" {
 variable "github_repo_url" {
   description = "URL of the GitHub repository to connect to Jenkins"
   type        = string
-  default     = "https://github.com/elmorenox/eb-ecommerce-deployment.git"
+  default     = "https://github.com/elmorenox/eb-banking-deployment.git"
 }
 
 variable "aws_access_key" {

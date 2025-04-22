@@ -45,8 +45,8 @@ pipeline {
     }
   }
   environment {
-    EB_ENV_NAME = "eb-ecommerce-env"
-    EB_APP_NAME = "eb-ecommerce-app"
+    EB_ENV_NAME = "eb-banking-env"
+    EB_APP_NAME = "eb-banking-app"
   }
   post {
     success {
