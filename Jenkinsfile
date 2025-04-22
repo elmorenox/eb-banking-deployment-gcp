@@ -39,7 +39,7 @@ pipeline {
         fi
         
         echo "Deploying to Elastic Beanstalk..."
-        eb deploy ${EB_ENV_NAME} || eb create ${EB_ENV_NAME}
+        eb deploy ${EB_ENV_NAME} || eb create ${EB_ENV_NAME} --single --instance_type t3.micro
         '''
       }
     }
