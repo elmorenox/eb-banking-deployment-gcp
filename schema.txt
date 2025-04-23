@@ -1,0 +1,6 @@
+Schema,Name,Type,Owner,Persistence,Access method,Size,Description
+main,users,table,sqlite,permanent,heap,8.0 kB,
+main,customers,table,sqlite,permanent,heap,8.0 kB,
+main,customerlog,table,sqlite,permanent,heap,8.0 kB,
+main,accounts,table,sqlite,permanent,heap,8.0 kB,
+main,transactions,table,sqlite,permanent,heap,8.0 kB,
