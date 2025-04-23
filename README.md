@@ -69,7 +69,7 @@ The purpose of this workload is to automate the deployment process of our applic
     - Accessed the application at the Elastic Beanstalk-provided domain to ensure it's working.
 
 ## SYSTEM DESIGN DIAGRAM
-[!Digram](Diagram.jpg)
+![Daigram](Diagram.jpg)
 
 ## ISSUES/TROUBLESHOOTING
 
