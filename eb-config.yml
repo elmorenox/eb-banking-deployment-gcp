@@ -6,7 +6,7 @@ branch-defaults:
 global:
   application_name: eb-banking-app
   default_ec2_keyname: LuisMorenoWorkloads
-  default_platform: python-3.7
+  default_platform: python-3.9
   default_region: us-east-1
   include_git_submodules: true
   instance_profile: null

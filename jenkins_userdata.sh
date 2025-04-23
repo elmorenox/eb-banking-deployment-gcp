@@ -40,6 +40,8 @@ region = us-east-1
 output = json
 EOF
 
+sudo touch /var/lib/jenkins/credentials.xml
+
 # Install EB CLI for jenkins user using official method
 sudo -u jenkins bash -c "cd /tmp && git clone https://github.com/aws/aws-elastic-beanstalk-cli-setup.git"
 sudo -u jenkins bash -c "cd /tmp && python3 aws-elastic-beanstalk-cli-setup/scripts/ebcli_installer.py"
