@@ -69,24 +69,7 @@ The purpose of this workload is to automate the deployment process of our applic
     - Accessed the application at the Elastic Beanstalk-provided domain to ensure it's working.
 
 ## SYSTEM DESIGN DIAGRAM
-
-```
-┌─────────────────┐         ┌─────────────────┐         ┌─────────────────┐
-│                 │         │                 │         │                 │
-│  GitHub Repo    │────────▶│  Jenkins Server │────────▶│  AWS Elastic    │
-│                 │   Git   │  (EC2 t2.micro) │   EB    │  Beanstalk      │
-│                 │  Webhook│                 │  Deploy │                 │
-└─────────────────┘         └─────────────────┘         └─────────────────┘
-        │                           │                           │
-        │                           │                           │
-        ▼                           ▼                           ▼
-┌─────────────────┐         ┌─────────────────┐         ┌─────────────────┐
-│                 │         │                 │         │                 │
-│  Source Code    │         │  Build & Test   │         │  Production     │
-│  Management     │         │  Automation     │         │  Environment    │
-│                 │         │                 │         │                 │
-└─────────────────┘         └─────────────────┘         └─────────────────┘
-```
+[!Digram](Diagram.jpg)
 
 ## ISSUES/TROUBLESHOOTING
 
