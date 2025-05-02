@@ -44,11 +44,17 @@ pipeline {
         . venv/bin/activate
         
         echo "Deploying to App Engine Flexible Environment in project: ${GCP_PROJECT_ID}..."
-        # Deploy using gcloud app deploy
-        # If deployment fails, attempt to create the app
-        gcloud app deploy app.yml --project=${GCP_PROJECT_ID} --version=${APP_VERSION} --quiet || \
-        (gcloud app create --project=${GCP_PROJECT_ID} --region=${GCP_REGION} && \
-         gcloud app deploy app.yml --project=${GCP_PROJECT_ID} --version=${APP_VERSION} --quiet)
+        
+        # Check if App Engine application already exists
+        if ! gcloud app describe --project=${GCP_PROJECT_ID} >/dev/null 2>&1; then
+          echo "App Engine application not found, creating..."
+          gcloud app create --project=${GCP_PROJECT_ID} --region=${GCP_REGION}
+        else
+          echo "App Engine application already exists"
+        fi
+        
+        # Proceed with deployment
+        gcloud app deploy app.yml --project=${GCP_PROJECT_ID} --version=${APP_VERSION} --quiet
         '''
       }
     }
