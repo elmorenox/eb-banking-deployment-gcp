@@ -1,7 +1,7 @@
 runtime: python
 env: flex
 service: default
-entrypoint: python application.py
+entrypoint: gunicorn -b :$PORT application:application
 
 runtime_config:
   operating_system: "ubuntu22"

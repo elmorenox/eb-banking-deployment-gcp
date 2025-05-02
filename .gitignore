@@ -35,5 +35,10 @@ credentials.tfvars
 # Environment files
 .env
 
+venv/
+
 # Terraform plan files
 *.tfplan
+
+__pycache__/
+database.db
