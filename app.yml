@@ -1,10 +1,15 @@
 # Python App Engine Flexible Environment configuration
-runtime: python39
-env: standard  # This line enables the flexible environment
-entrypoint: gunicorn -b :$PORT main:app  # How the application will be started
+runtime: python
+env: flex  # This line enables the flexible environment
 
-manual_scaling:
+manual_scaling:g
   instances: 1  # Required for Flexible, no auto-scaling allowed
+
+
+# Runtime configuration
+runtime_config:
+  operating_system: ubuntu22  # Latest supported Ubuntu OS
+  python_version: 3.9  # Specify Python version (optional if using latest)
 
 # Instance class controls the resources available to your app
 resources:

@@ -41,8 +41,6 @@ pipeline {
     stage ('Deploy') {
       steps {
         sh '''#!/bin/bash
-        . venv/bin/activate
-        
         echo "Deploying to App Engine Flexible Environment in project: ${GCP_PROJECT_ID}..."
         
         # Check if App Engine application already exists
