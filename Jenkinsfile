@@ -52,7 +52,14 @@ pipeline {
         fi
         
         # Proceed with deployment
-        gcloud app deploy app.yaml --project=${GCP_PROJECT_ID} --version=${APP_VERSION} --verbosity=debug
+        gcloud app deploy app.yaml --project=${GCP_PROJECT_ID} --version=${APP_VERSION} --verbosity=debug --timeout=3600s
+
+        VERSION_STATUS=$(gcloud app versions describe VERSION_ID --service=myservice --format="value(servingStatus)")
+
+        # If it exists but isn't serving, start it manually
+        if [ -n "$VERSION_STATUS" ]; then
+          gcloud app versions start VERSION_ID --service=myservice
+        fi
         '''
       }
     }

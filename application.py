@@ -28,6 +28,13 @@ db = scoped_session(sessionmaker(bind=engine))
 def dashboard():
     return render_template("home.html", home=True)
 
+@application.route("/health")
+def health_check():
+    """
+    Health check endpoint that returns a proper JSON response
+    """
+    return jsonify({"status": "OK", "message": "Service is healthy"}), 200
+
 @application.route("/addcustomer" , methods=["GET", "POST"])
 def addcustomer():
     if 'user' not in session:
