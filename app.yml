@@ -2,7 +2,7 @@
 runtime: python
 env: flex  # This line enables the flexible environment
 
-manual_scaling:g
+manual_scaling:
   instances: 1  # Required for Flexible, no auto-scaling allowed
 
 
