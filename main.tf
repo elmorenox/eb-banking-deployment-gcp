@@ -1,164 +1,95 @@
-provider "aws" {
-  region = var.region
+provider "google" {
+  project = var.project_id
+  region  = var.region
+  zone    = var.zone
 }
 
 # Create a VPC
-resource "aws_vpc" "jenkins_vpc" {
-  cidr_block           = var.vpc_cidr
-  enable_dns_support   = true
-  enable_dns_hostnames = true
+resource "google_compute_network" "jenkins_vpc" {
+  name                    = "jenkins-vpc"
+  auto_create_subnetworks = false
 
-  tags = merge(var.resource_tags, {
-    Name = "jenkins-vpc"
-  })
+  # Apply tags
+  description = "VPC for Jenkins deployment"
 }
 
-# Create a public subnet
-resource "aws_subnet" "public_subnet" {
-  vpc_id                  = aws_vpc.jenkins_vpc.id
-  cidr_block              = var.public_subnet_cidr
-  availability_zone       = var.availability_zone
-  map_public_ip_on_launch = true
+# Create a subnet
+resource "google_compute_subnetwork" "jenkins_subnet" {
+  name          = "jenkins-subnet"
+  ip_cidr_range = var.subnet_cidr
+  region        = var.region
+  network       = google_compute_network.jenkins_vpc.id
 
-  tags = merge(var.resource_tags, {
-    Name = "jenkins-public-subnet"
-  })
+  # Enable private Google access
+  private_ip_google_access = true
 }
 
-# Create an internet gateway
-resource "aws_internet_gateway" "igw" {
-  vpc_id = aws_vpc.jenkins_vpc.id
+# Create a firewall rule for Jenkins
+resource "google_compute_firewall" "jenkins_firewall" {
+  name    = var.firewall_name
+  network = google_compute_network.jenkins_vpc.name
 
-  tags = merge(var.resource_tags, {
-    Name = "jenkins-igw"
-  })
-}
-
-# Create a route table
-resource "aws_route_table" "public_rt" {
-  vpc_id = aws_vpc.jenkins_vpc.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.igw.id
+  allow {
+    protocol = "tcp"
+    ports    = ["8080", "22"]
   }
 
-  tags = merge(var.resource_tags, {
-    Name = "jenkins-public-rt"
-  })
+  # Allow traffic from anywhere to Jenkins and SSH ports
+  source_ranges = ["0.0.0.0/0"]
+  
+  target_tags = ["jenkins"]
 }
 
-# Associate the route table with the subnet
-resource "aws_route_table_association" "public_rta" {
-  subnet_id      = aws_subnet.public_subnet.id
-  route_table_id = aws_route_table.public_rt.id
-}
+# Create a VM instance for Jenkins
+resource "google_compute_instance" "jenkins_server" {
+  name         = "jenkins-server"
+  machine_type = var.machine_type
+  zone         = var.zone
 
-# Create a security group for Jenkins
-resource "aws_security_group" "jenkins_sg" {
-  name        = var.jenkins_sg_name
-  description = "Security group for Jenkins server"
-  vpc_id      = aws_vpc.jenkins_vpc.id
+  tags = ["jenkins"]
 
-  # Jenkins web interface
-  ingress {
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+  boot_disk {
+    initialize_params {
+      image = var.compute_image
+      size  = 50  # 50 GB disk
+    }
   }
 
-  # SSH access
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+  network_interface {
+    network    = google_compute_network.jenkins_vpc.name
+    subnetwork = google_compute_subnetwork.jenkins_subnet.name
+    
+    # Assign a public IP
+    access_config {
+      // Ephemeral public IP
+    }
   }
 
-  # Outbound traffic
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+  # Add metadata for SSH keys if needed
+  # metadata = {
+  #   ssh-keys = "USERNAME:${file("~/.ssh/id_rsa.pub")}"
+  # }
 
-  tags = merge(var.resource_tags, {
-    Name = var.jenkins_sg_name
-  })
-}
-
-# Create an IAM role for Jenkins EC2 instance
-resource "aws_iam_role" "jenkins_role" {
-  name = var.jenkins_role_name
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "ec2.amazonaws.com"
-        }
-      }
-    ]
-  })
-
-  tags = var.resource_tags
-}
-
-# Attach policies to the IAM role
-resource "aws_iam_role_policy_attachment" "eb_full_access" {
-  role       = aws_iam_role.jenkins_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess-AWSElasticBeanstalk"
-}
-
-resource "aws_iam_role_policy_attachment" "ec2_full_access" {
-  role       = aws_iam_role.jenkins_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2FullAccess"
-}
-
-# Attach additional policies that might be needed
-resource "aws_iam_role_policy_attachment" "s3_access" {
-  role       = aws_iam_role.jenkins_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
-}
-
-resource "aws_iam_role_policy_attachment" "cloudformation_access" {
-  role       = aws_iam_role.jenkins_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AWSCloudFormationFullAccess"
-}
-
-# Create an IAM instance profile
-resource "aws_iam_instance_profile" "jenkins_profile" {
-  name = var.jenkins_profile_name
-  role = aws_iam_role.jenkins_role.name
-}
-
-# Create an EC2 instance for Jenkins
-resource "aws_instance" "jenkins_server" {
-  ami                    = var.ec2_ami
-  instance_type          = var.instance_type
-  key_name               = var.key_name
-  subnet_id              = aws_subnet.public_subnet.id
-  vpc_security_group_ids = [aws_security_group.jenkins_sg.id]
-  iam_instance_profile   = aws_iam_instance_profile.jenkins_profile.name
-
-  user_data = templatefile("jenkins_userdata.sh", {
+  metadata_startup_script = templatefile("jenkins_userdata.sh", {
     github_repo_url    = var.github_repo_url,
-    eb_environment_name = var.eb_environment_name,
-    aws_access_key     = var.aws_access_key,
-    aws_secret_key     = var.aws_secret_key
+    app_engine_service = var.app_engine_service,
+    service_account_email = var.service_account_email
   })
 
-  tags = merge(var.resource_tags, {
-    Name = "jenkins-server"
-  })
+  # Using service account email that you've set up manually
+  service_account {
+    email  = var.service_account_email
+    scopes = ["cloud-platform"]
+  }
+}
+
+# Reserve a static external IP address (optional)
+resource "google_compute_address" "jenkins_ip" {
+  name   = "jenkins-static-ip"
+  region = var.region
 }
 
 # Output the public IP of the Jenkins server
 output "jenkins_ip" {
-  value = aws_instance.jenkins_server.public_ip
+  value = google_compute_instance.jenkins_server.network_interface[0].access_config[0].nat_ip
 }

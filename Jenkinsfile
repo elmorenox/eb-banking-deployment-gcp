@@ -1,6 +1,19 @@
 pipeline {
   agent any
   stages {
+    stage ('Initialize') {
+      steps {
+        script {
+          // Get the GCP project ID automatically using gcloud
+          env.GCP_PROJECT_ID = sh(script: 'gcloud config get-value project', returnStdout: true).trim()
+          echo "Detected GCP Project ID: ${env.GCP_PROJECT_ID}"
+          
+          // Set the app version based on the build number
+          env.APP_VERSION = "v-${BUILD_NUMBER}"
+          echo "Using app version: ${env.APP_VERSION}"
+        }
+      }
+    }
     stage ('Build') {
       steps {
         sh '''#!/bin/bash
@@ -14,7 +27,6 @@ pipeline {
         
         pip install pip --upgrade
         pip install -r requirements.txt
-        pip install awsebcli
         '''
       }
     }
@@ -31,26 +43,33 @@ pipeline {
         sh '''#!/bin/bash
         . venv/bin/activate
         
-        # Initialize EB CLI using our config file
-        if [ ! -d ".elasticbeanstalk" ]; then
-          echo "Setting up Elastic Beanstalk configuration..."
-          mkdir -p .elasticbeanstalk
-          cp eb-config.yml .elasticbeanstalk/config.yml
-        fi
-        
-        echo "Deploying to Elastic Beanstalk..."
-        eb deploy ${EB_ENV_NAME} || eb create ${EB_ENV_NAME} --single --instance_type t3.micro
+        echo "Deploying to App Engine Flexible Environment in project: ${GCP_PROJECT_ID}..."
+        # Deploy using gcloud app deploy
+        # If deployment fails, attempt to create the app
+        gcloud app deploy app.yaml --project=${GCP_PROJECT_ID} --version=${APP_VERSION} --quiet || \
+        (gcloud app create --project=${GCP_PROJECT_ID} --region=${GCP_REGION} && \
+         gcloud app deploy app.yaml --project=${GCP_PROJECT_ID} --version=${APP_VERSION} --quiet)
         '''
       }
     }
   }
   environment {
-    EB_ENV_NAME = "eb-banking-env"
-    EB_APP_NAME = "eb-banking-app"
+    GCP_REGION = "us-east"
+    APP_SERVICE = "banking-app"
   }
   post {
     success {
-      echo 'Successfully deployed application to AWS Elastic Beanstalk'
+      echo 'Successfully deployed application to App Engine Flexible Environment'
+      
+      script {
+        // Get the deployed instance ID (first instance of the deployed version)
+        def instanceId = sh(script: "gcloud app instances list --version=${APP_VERSION} --format='value(id)' | head -n 1", returnStdout: true).trim()
+        def appUrl = sh(script: 'gcloud app describe --format="value(defaultHostname)"', returnStdout: true).trim()
+        
+        echo "Application deployed and available at: https://${appUrl}"
+        echo "To SSH into the instance, use the following command:"
+        echo "gcloud app instances ssh ${instanceId} --version=${APP_VERSION}"
+      }
     }
     failure {
       echo 'Pipeline failed'

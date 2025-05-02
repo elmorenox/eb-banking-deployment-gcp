@@ -1,91 +1,65 @@
-variable "eb_environment_name" {
-  description = "Name of the Elastic Beanstalk environment"
+variable "project_id" {
+  description = "GCP Project ID"
   type        = string
-  default     = "eb-banking-env"
 }
 
 variable "region" {
-  description = "AWS region"
+  description = "GCP region"
   type        = string
-  default     = "us-east-1"
+  default     = "us-central1"
 }
 
-variable "vpc_cidr" {
-  description = "CIDR block for VPC"
+variable "zone" {
+  description = "GCP zone"
   type        = string
-  default     = "10.0.0.0/16"
+  default     = "us-central1-a"
 }
 
-variable "public_subnet_cidr" {
-  description = "CIDR block for public subnet"
+variable "subnet_cidr" {
+  description = "CIDR block for subnet"
   type        = string
   default     = "10.0.1.0/24"
 }
 
-variable "availability_zone" {
-  description = "Availability zone"
+variable "compute_image" {
+  description = "Image for compute instances"
   type        = string
-  default     = "us-east-1a"
+  default     = "ubuntu-os-cloud/ubuntu-2204-lts"
 }
 
-variable "ec2_ami" {
-  description = "AMI ID for EC2 instances"
+variable "machine_type" {
+  description = "GCP machine type"
   type        = string
-  default     = "ami-0c7217cdde317cfec" # Ubuntu 22.04 LTS
+  default     = "e2-medium"
 }
 
-variable "instance_type" {
-  description = "EC2 instance type"
+variable "firewall_name" {
+  description = "Name of the Jenkins firewall rule"
   type        = string
-  default     = "t2.micro"
-}
-
-variable "key_name" {
-  description = "Name of the SSH key pair"
-  type        = string
-}
-
-variable "jenkins_sg_name" {
-  description = "Name of the Jenkins security group"
-  type        = string
-  default     = "jenkins-sg"
-}
-
-variable "jenkins_role_name" {
-  description = "Name of the IAM role for Jenkins"
-  type        = string
-  default     = "jenkins-role"
-}
-
-variable "jenkins_profile_name" {
-  description = "Name of the IAM instance profile for Jenkins"
-  type        = string
-  default     = "jenkins-profile"
+  default     = "jenkins-firewall"
 }
 
 variable "resource_tags" {
-  description = "Tags to apply to resources"
+  description = "Tags to apply to resources (used as labels in GCP)"
   type        = map(string)
   default = {
-    Project     = "jenkins-eb-deployment"
-    Environment = "dev"
+    project     = "jenkins-app-engine-deployment"
+    environment = "dev"
   }
 }
 
 variable "github_repo_url" {
   description = "URL of the GitHub repository to connect to Jenkins"
   type        = string
-  default     = "https://github.com/elmorenox/eb-banking-deployment.git"
 }
 
-variable "aws_access_key" {
-  description = "AWS Access Key"
+variable "app_engine_service" {
+  description = "Name of the App Engine service"
   type        = string
-  sensitive   = true
+  default     = "banking-app"
 }
 
-variable "aws_secret_key" {
-  description = "AWS Secret Key"
+variable "service_account_email" {
+  description = "Email of the service account for Jenkins"
   type        = string
-  sensitive   = true
 }

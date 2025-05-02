@@ -1,5 +1,5 @@
 #!/bin/bash
-# Fully automated Jenkins setup script for CI/CD pipeline with AWS Elastic Beanstalk (silent version)
+# Fully automated Jenkins setup script for CI/CD pipeline with Google App Engine
 
 # Update system packages
 sudo apt update -y
@@ -7,10 +7,6 @@ sudo apt upgrade -y
 
 # Install required system packages
 sudo apt install -y openjdk-17-jdk git python3 python3-pip python3-venv unzip software-properties-common expect
-
-# Add and install Python 3.10
-sudo add-apt-repository ppa:deadsnakes/ppa -y
-sudo apt install -y python3.10 python3.10-venv
 
 # Configure Jenkins repository and install Jenkins
 curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | sudo tee /usr/share/keyrings/jenkins-keyring.asc > /dev/null
@@ -20,44 +16,28 @@ sudo apt install -y jenkins
 sudo systemctl enable jenkins
 sudo systemctl start jenkins
 
-# Install AWS CLI
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-unzip awscliv2.zip
-sudo ./aws/install
-rm -rf aws awscliv2.zip
+# Verify Google Cloud SDK is installed (should be on Compute Engine VMs)
+if ! command -v gcloud &> /dev/null; then
+    echo "Installing Google Cloud SDK..."
+    # Add Google Cloud SDK repository
+    echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+    curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
+    sudo apt update
+    sudo apt install -y google-cloud-sdk
+else
+    echo "Google Cloud SDK already installed"
+fi
 
-# Configure AWS credentials for jenkins user
-sudo mkdir -p /var/lib/jenkins/.aws
-sudo tee /var/lib/jenkins/.aws/credentials > /dev/null << EOF
-[default]
-aws_access_key_id = ${aws_access_key}
-aws_secret_access_key = ${aws_secret_key}
-EOF
+# Make sure the Jenkins user can access gcloud
+sudo -u jenkins gcloud auth list || true
 
-sudo tee /var/lib/jenkins/.aws/config > /dev/null << EOF
-[default]
-region = us-east-1
-output = json
-EOF
-
-sudo touch /var/lib/jenkins/credentials.xml
-
-# Install EB CLI for jenkins user using official method
-sudo -u jenkins bash -c "cd /tmp && git clone https://github.com/aws/aws-elastic-beanstalk-cli-setup.git"
-sudo -u jenkins bash -c "cd /tmp && python3 aws-elastic-beanstalk-cli-setup/scripts/ebcli_installer.py"
-
-# Add EB CLI to jenkins user path
-EBCLI_PATH=$(sudo -u jenkins bash -c "find /var/lib/jenkins/.ebcli-virtual-env -name 'eb' -type f | head -n 1")
-EBCLI_DIR=$(dirname "$EBCLI_PATH")
-sudo -u jenkins bash -c "echo 'export PATH=$EBCLI_DIR:\$PATH' >> /var/lib/jenkins/.bashrc"
-sudo -u jenkins bash -c "source /var/lib/jenkins/.bashrc"
-
-# Set proper permissions
-sudo chown -R jenkins:jenkins /var/lib/jenkins/.aws
-sudo chmod 600 /var/lib/jenkins/.aws/credentials
-sudo chmod 644 /var/lib/jenkins/.aws/config
+# Ensure Jenkins user can access application default credentials
+sudo mkdir -p /var/lib/jenkins/.config/gcloud
+sudo ln -sf /etc/google-cloud/application_default_credentials.json /var/lib/jenkins/.config/gcloud/application_default_credentials.json
+sudo chown -R jenkins:jenkins /var/lib/jenkins/.config
 
 # Wait for Jenkins to be fully initialized
+echo "Waiting for Jenkins to initialize..."
 while ! sudo test -f /var/lib/jenkins/secrets/initialAdminPassword; do
     sleep 5
 done
@@ -71,26 +51,25 @@ while ! curl -s http://localhost:8080/login > /dev/null; do
 done
 
 # Download Jenkins CLI
+echo "Downloading Jenkins CLI..."
 cd /tmp
 wget http://localhost:8080/jnlpJars/jenkins-cli.jar
 
 # Install required Jenkins plugins
-java -jar jenkins-cli.jar -s http://localhost:8080/ -auth admin:$ADMIN_PASSWORD install-plugin workflow-aggregator git junit pipeline-stage-view blueocean docker-workflow pipeline-github-lib pipeline-rest-api ssh-agent -deploy
+echo "Installing Jenkins plugins..."
+java -jar jenkins-cli.jar -s http://localhost:8080/ -auth admin:$ADMIN_PASSWORD install-plugin workflow-aggregator git junit pipeline-stage-view blueocean docker-workflow pipeline-github-lib pipeline-rest-api ssh-agent google-oauth-plugin google-source-plugin google-storage-plugin google-container-registry-auth -deploy
 
 # Wait for plugins to be installed
 sleep 60
 
 # Create Multibranch Pipeline job
+echo "Creating Jenkins pipeline job..."
 cat > job_config.xml << 'EOL'
 <?xml version='1.1' encoding='UTF-8'?>
 <org.jenkinsci.plugins.workflow.multibranch.WorkflowMultiBranchProject plugin="workflow-multibranch@2.26">
   <actions/>
   <description></description>
   <properties>
-    <org.jenkinsci.plugins.pipeline.modeldefinition.config.FolderConfig plugin="pipeline-model-definition@1.9.3">
-      <dockerLabel></dockerLabel>
-      <registry plugin="docker-commons@1.19"/>
-    </org.jenkinsci.plugins.pipeline.modeldefinition.config.FolderConfig>
   </properties>
   <folderViews class="jenkins.branch.MultiBranchProjectViewHolder" plugin="branch-api@2.7.0">
     <owner class="org.jenkinsci.plugins.workflow.multibranch.WorkflowMultiBranchProject" reference="../.."/>
@@ -114,7 +93,7 @@ cat > job_config.xml << 'EOL'
       <jenkins.branch.BranchSource>
         <source class="jenkins.plugins.git.GitSCMSource" plugin="git@4.11.0">
           <id>1234567890</id>
-          <remote>https://github.com/elmorenox/eb-banking-deployment.git</remote>
+          <remote>${github_repo_url}</remote>
           <credentialsId></credentialsId>
           <traits>
             <jenkins.plugins.git.traits.BranchDiscoveryTrait/>
@@ -134,9 +113,7 @@ cat > job_config.xml << 'EOL'
 </org.jenkinsci.plugins.workflow.multibranch.WorkflowMultiBranchProject>
 EOL
 
-java -jar jenkins-cli.jar -s http://localhost:8080/ -auth admin:$ADMIN_PASSWORD create-job eb-banking-pipeline < job_config.xml
+java -jar jenkins-cli.jar -s http://localhost:8080/ -auth admin:$ADMIN_PASSWORD create-job app-engine-pipeline < job_config.xml
 
-sudo chown -R jenkins:jenkins /var/lib/jenkins
-
-# Output only the admin password
 echo "Jenkins Admin Password: $ADMIN_PASSWORD"
+echo "Jenkins setup completed! See /home/ubuntu/jenkins-readme.txt for details."
