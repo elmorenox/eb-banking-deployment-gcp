@@ -1,30 +1,17 @@
-# App Engine Flexible environment configuration
 runtime: python
 env: flex
 entrypoint: gunicorn -b :$PORT application:application
-service: default
 
 runtime_config:
   operating_system: ubuntu22
-  python_version: 3.9
+  python_version: 3.9  # Choose your preferred Python version
 
-env_variables:
-  ENV: production
-
+# Resource settings
 resources:
   cpu: 1
   memory_gb: 1
   disk_size_gb: 10
 
+# Scaling settings
 manual_scaling:
   instances: 1
-
-handlers:
-- url: /static/(.*)
-  static_files: static/\1
-  upload: static/.*
-  secure: optional
-
-- url: /.*
-  script: auto
-  secure: optional
