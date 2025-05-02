@@ -46,15 +46,15 @@ pipeline {
         echo "Deploying to App Engine Flexible Environment in project: ${GCP_PROJECT_ID}..."
         # Deploy using gcloud app deploy
         # If deployment fails, attempt to create the app
-        gcloud app deploy app.yaml --project=${GCP_PROJECT_ID} --version=${APP_VERSION} --quiet || \
+        gcloud app deploy app.yml --project=${GCP_PROJECT_ID} --version=${APP_VERSION} --quiet || \
         (gcloud app create --project=${GCP_PROJECT_ID} --region=${GCP_REGION} && \
-         gcloud app deploy app.yaml --project=${GCP_PROJECT_ID} --version=${APP_VERSION} --quiet)
+         gcloud app deploy app.yml --project=${GCP_PROJECT_ID} --version=${APP_VERSION} --quiet)
         '''
       }
     }
   }
   environment {
-    GCP_REGION = "us-east"
+    GCP_REGION = "us-east1"
     APP_SERVICE = "banking-app"
   }
   post {
