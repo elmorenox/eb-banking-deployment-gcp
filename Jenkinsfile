@@ -52,7 +52,7 @@ pipeline {
         fi
         
         # Proceed with deployment
-        gcloud app deploy app.yml --project=${GCP_PROJECT_ID} --version=${APP_VERSION} --verbosity=debug
+        gcloud app deploy app.yaml --project=${GCP_PROJECT_ID} --version=${APP_VERSION} --verbosity=debug
         '''
       }
     }
