@@ -3,6 +3,11 @@ runtime: python
 env: flex  # This line enables the flexible environment
 entrypoint: gunicorn -b :$PORT main:app  # How the application will be started
 
+beta_settings:
+  # Required for Python Flex post-2023
+  use_deprecated_vm_runtime: true  # Acknowledge deprecation
+
+
 # Runtime configuration
 runtime_config:
   operating_system: ubuntu22  # Latest supported Ubuntu OS
