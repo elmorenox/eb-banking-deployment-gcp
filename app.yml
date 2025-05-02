@@ -8,7 +8,7 @@ automatic_scaling:
   max_instances: 3  # Adjust based on your needs
   min_instances: 0  # Allows scaling to zero
   target_cpu_utilization: 0.6
-  
+
 # Runtime configuration
 runtime_config:
   operating_system: ubuntu22  # Latest supported Ubuntu OS
@@ -19,10 +19,6 @@ resources:
   cpu: 1
   memory_gb: 1
   disk_size_gb: 10
-
-# Scaling configuration
-manual_scaling:
-  instances: 1  # Start with a single instance
 
 # Environment variables
 env_variables:
