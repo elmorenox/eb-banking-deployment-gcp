@@ -7,6 +7,7 @@ Flask
 Flask-Bcrypt
 Flask-Session
 fpdf
+gunicorn
 idna
 itsdangerous
 Jinja2

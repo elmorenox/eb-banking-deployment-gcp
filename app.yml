@@ -1,6 +1,7 @@
 # App Engine Flexible environment configuration
 runtime: python
 env: flex
+entrypoint: gunicorn -b :$PORT application:application
 service: default
 
 runtime_config:
