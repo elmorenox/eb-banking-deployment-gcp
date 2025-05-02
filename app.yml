@@ -13,9 +13,6 @@ runtime_config:
   operating_system: ubuntu22  # Latest supported Ubuntu OS
   python_version: 3.10  # Specify Python version (optional if using latest)
 
-# VM configuration for SSH access
-vm: true  # Enables SSH access to instances
-
 # Instance class controls the resources available to your app
 resources:
   cpu: 1
