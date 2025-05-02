@@ -52,7 +52,7 @@ pipeline {
         fi
         
         # Proceed with deployment
-        gcloud app deploy app.yml --project=${GCP_PROJECT_ID} --version=${APP_VERSION} --quiet
+        gcloud app deploy app.yml --project=${GCP_PROJECT_ID} --version=${APP_VERSION} --verbosity=debug
         '''
       }
     }
@@ -64,16 +64,6 @@ pipeline {
   post {
     success {
       echo 'Successfully deployed application to App Engine Flexible Environment'
-      
-      script {
-        // Get the deployed instance ID (first instance of the deployed version)
-        def instanceId = sh(script: "gcloud app instances list --version=${APP_VERSION} --format='value(id)' | head -n 1", returnStdout: true).trim()
-        def appUrl = sh(script: 'gcloud app describe --format="value(defaultHostname)"', returnStdout: true).trim()
-        
-        echo "Application deployed and available at: https://${appUrl}"
-        echo "To SSH into the instance, use the following command:"
-        echo "gcloud app instances ssh ${instanceId} --version=${APP_VERSION}"
-      }
     }
     failure {
       echo 'Pipeline failed'
