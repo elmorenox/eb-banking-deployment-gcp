@@ -3,10 +3,7 @@ runtime: python
 env: flex  # This line enables the flexible environment
 entrypoint: gunicorn -b :$PORT main:app  # How the application will be started
 
-beta_settings:
-  # Required for Python Flex post-2023
-  use_deprecated_vm_runtime: true  # Acknowledge deprecation
-
+instance_class: F2  # Instance type (F1-F4)
 
 # Runtime configuration
 runtime_config:
@@ -30,9 +27,11 @@ env_variables:
 
 # Static file handlers if needed
 handlers:
-  # Serve static files from the 'static' directory
   - url: /static
     static_dir: static
+  - url: /.*
+    script: auto
+
 
   # All other URLs are handled by your application
   - url: /.*
